@@ -151,6 +151,7 @@ public abstract class Exporter {
     private BlockingQueue<String> recordQueue;
     private SupportedFhirVersion fhirVersion;
     private List<Mapping> flexporterMappings;
+    public Generator generator;  // Public to allow Generator class to set it
 
     public ExporterRuntimeOptions() {
       yearsOfHistory = Config.getAsInteger("exporter.years_of_history", 10);
@@ -166,6 +167,7 @@ public abstract class Exporter {
       recordQueue = init.recordQueue;
       fhirVersion = init.fhirVersion;
       flexporterMappings = init.flexporterMappings;
+      generator = init.generator;
     }
 
     /**
@@ -292,6 +294,10 @@ public abstract class Exporter {
       File outDirectory = getOutputFolder("fhir_stu3", person);
       if (Config.getAsBoolean("exporter.fhir.bulk_data")) {
         org.hl7.fhir.dstu3.model.Bundle bundle = FhirStu3.convertToFHIR(person, stopTime);
+        // Count resources in bundle
+        if (options.generator != null && bundle != null) {
+          options.generator.stats.get("resources").addAndGet(bundle.getEntry().size());
+        }
         IParser parser = FhirStu3.getContext().newJsonParser().setPrettyPrint(false);
         for (org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent entry : bundle.getEntry()) {
           String filename = entry.getResource().getResourceType().toString() + ".ndjson";
@@ -300,7 +306,13 @@ public abstract class Exporter {
           appendToFile(outFilePath, entryJson);
         }
       } else {
-        String bundleJson = FhirStu3.convertToFHIRJson(person, stopTime);
+        org.hl7.fhir.dstu3.model.Bundle bundle = FhirStu3.convertToFHIR(person, stopTime);
+        // Count resources in bundle
+        if (options.generator != null && bundle != null) {
+          options.generator.stats.get("resources").addAndGet(bundle.getEntry().size());
+        }
+        String bundleJson = FhirStu3.getContext().newJsonParser().setPrettyPrint(true)
+            .encodeResourceToString(bundle);
         Path outFilePath = outDirectory.toPath().resolve(filename(person, fileTag, "json"));
         writeNewFile(outFilePath, bundleJson);
       }
@@ -309,6 +321,10 @@ public abstract class Exporter {
       File outDirectory = getOutputFolder("fhir_dstu2", person);
       if (Config.getAsBoolean("exporter.fhir.bulk_data")) {
         ca.uhn.fhir.model.dstu2.resource.Bundle bundle = FhirDstu2.convertToFHIR(person, stopTime);
+        // Count resources in bundle
+        if (options.generator != null && bundle != null) {
+          options.generator.stats.get("resources").addAndGet(bundle.getEntry().size());
+        }
         IParser parser = FhirDstu2.getContext().newJsonParser().setPrettyPrint(false);
         for (ca.uhn.fhir.model.dstu2.resource.Bundle.Entry entry : bundle.getEntry()) {
           String filename = entry.getResource().getResourceName() + ".ndjson";
@@ -317,7 +333,13 @@ public abstract class Exporter {
           appendToFile(outFilePath, entryJson);
         }
       } else {
-        String bundleJson = FhirDstu2.convertToFHIRJson(person, stopTime);
+        ca.uhn.fhir.model.dstu2.resource.Bundle bundle = FhirDstu2.convertToFHIR(person, stopTime);
+        // Count resources in bundle
+        if (options.generator != null && bundle != null) {
+          options.generator.stats.get("resources").addAndGet(bundle.getEntry().size());
+        }
+        String bundleJson = FhirDstu2.getContext().newJsonParser().setPrettyPrint(true)
+            .encodeResourceToString(bundle);
         Path outFilePath = outDirectory.toPath().resolve(filename(person, fileTag, "json"));
         writeNewFile(outFilePath, bundleJson);
       }
@@ -339,6 +361,11 @@ public abstract class Exporter {
             bundle = Actions.applyMapping(bundle, mapping, person, fjContext);
           }
         }
+      }
+
+      // Count resources in bundle
+      if (options.generator != null && bundle != null) {
+        options.generator.stats.get("resources").addAndGet(bundle.getEntry().size());
       }
 
       IParser parser = FhirR4.getContext().newJsonParser();

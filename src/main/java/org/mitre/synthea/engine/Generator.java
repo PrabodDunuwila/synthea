@@ -250,6 +250,7 @@ public class Generator {
   public Generator(GeneratorOptions o, Exporter.ExporterRuntimeOptions ero) {
     options = o;
     exporterRuntimeOptions = ero;
+    exporterRuntimeOptions.generator = this;
     if (options.updatedPopulationSnapshotPath != null) {
       exporterRuntimeOptions.deferExports = true;
       internalStore = Collections.synchronizedList(new LinkedList<>());
@@ -315,6 +316,7 @@ public class Generator {
 
     stats.put("alive", new AtomicInteger(0));
     stats.put("dead", new AtomicInteger(0));
+    stats.put("resources", new AtomicInteger(0));
 
     // initialize hospitals
     Provider.loadProviders(location, this.clinicianRandom);
@@ -472,6 +474,7 @@ public class Generator {
 
     System.out.printf("Records: total=%d, alive=%d, dead=%d\n", totalGeneratedPopulation.get(),
             stats.get("alive").get(), stats.get("dead").get());
+    System.out.printf("Resources: total=%d\n", stats.get("resources").get());
     System.out.printf("RNG=%d\n", this.populationRandom.getCount());
     System.out.printf("Clinician RNG=%d\n", this.clinicianRandom.getCount());
 
